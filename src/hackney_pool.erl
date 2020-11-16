@@ -30,7 +30,8 @@
          set_max_connections/2,
          timeout/1,
          set_timeout/2,
-         child_spec/2]).
+         child_spec/2,
+         set_meta/2]).
 
 -export([start_link/2]).
 
@@ -226,6 +227,11 @@ timeout(Name) ->
 set_timeout(Name, NewTimeout) ->
   gen_server:cast(find_pool(Name), {set_timeout, NewTimeout}).
 
+%% @doc change the log meta
+%%
+set_meta(Name, NewMeta) ->
+  gen_server:cast(find_pool(Name), {set_meta, NewMeta}).
+
 %% @private
 %%
 %%
@@ -278,6 +284,13 @@ init([Name, Options]) ->
                 Size
             end,
   Timeout = proplists:get_value(timeout, Options),
+
+  case proplists:get_value(log_meta, Options) of
+    undefined ->
+        ok;
+    Meta ->
+        ok = logger:update_process_metadata(Meta)
+  end,
 
   %% register the module
   ets:insert(?MODULE, {Name, self()}),
@@ -359,6 +372,9 @@ handle_cast({set_maxconn, MaxConn}, State) ->
   {noreply, State#state{max_connections=MaxConn}};
 handle_cast({set_timeout, NewTimeout}, State) ->
   {noreply, State#state{timeout=NewTimeout}};
+handle_cast({set_meta, Meta}, State) ->
+  _ = logger:update_process_metadata(Meta),
+  {noreply, State};
 
 handle_cast({checkout_cancel, Dest, Ref}, State) ->
   #state{queues=Queues, pending=Pending} = State,
