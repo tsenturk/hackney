@@ -294,6 +294,7 @@ init([Name, Options]) ->
 
   Meta = proplists:get_value(log_meta, Options, #{}),
   logger:update_process_metadata(Meta),
+  logger:debug("meta updated as: ~p", [Meta]),
 
   %% register the module
   ets:insert(?MODULE, {Name, self()}),
@@ -323,6 +324,7 @@ handle_call({checkout, Dest, Requester, RequestRef}, From, State) ->
          pending = Pending,
          meta = Meta} = State,
   logger:update_process_metadata(Meta),
+  logger:debug("meta updated as: ~p", [Meta]),
   {Reply, State2} = find_connection(Dest, Requester, State),
   case Reply of
     {ok, _Socket, _Owner} ->
