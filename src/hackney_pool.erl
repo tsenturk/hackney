@@ -31,7 +31,8 @@
          timeout/1,
          set_timeout/2,
          child_spec/2,
-         set_meta/2]).
+         set_meta/2,
+         meta/1]).
 
 -export([start_link/2]).
 
@@ -229,6 +230,11 @@ set_timeout(Name, NewTimeout) ->
 
 %% @doc change the log meta
 %%
+meta(Name) ->
+  gen_server:call(find_pool(Name), meta).
+
+%% @doc change the log meta
+%%
 set_meta(Name, NewMeta) ->
   gen_server:cast(find_pool(Name), {set_meta, NewMeta}).
 
@@ -307,6 +313,8 @@ handle_call(count, _From, #state{sockets=Sockets}=State) ->
   {reply, dict:size(Sockets), State};
 handle_call(timeout, _From, #state{timeout=Timeout}=State) ->
   {reply, Timeout, State};
+handle_call(meta, _From, State) ->
+  {reply, logger:get_process_metadata(), State};
 handle_call(max_connections, _From, #state{max_connections=MaxConn}=State) ->
   {reply, MaxConn, State};
 handle_call({checkout, Dest, Requester, RequestRef}, From, State) ->

@@ -9,7 +9,8 @@ dummy_test() ->
 multipart_test_() ->
     {setup, fun start/0, fun stop/1,
       [{timeout, 120, queue_timeout()},
-       {timeout, 120, checkout_timeout()}]}.
+       {timeout, 120, checkout_timeout()},
+       {timeout, 120, check_pool_metadata()}]}.
 
 start() ->
     error_logger:tty(false),
@@ -56,4 +57,17 @@ checkout_timeout() ->
                 hackney:close(Ref),
                 ?assertEqual(Error, checkout_timeout)
         end
+    end.
+
+check_pool_metadata() ->
+    fun() ->
+        Name = fcm,
+        Meta = #{app_id => <<"test123">>},
+        Opts = [{pool, pool_test}, {connect_timeout, 100}, {log_meta, Meta}],
+        hackney_pool:start_pool(Name, Opts),
+        Meta = hackney_pool:meta(Name),
+
+        NewMeta = #{app_id => <<"test456">>},
+        hackney_pool:set_meta(Name, NewMeta),
+        NewMeta = hackney_pool:meta(Name)
     end.
