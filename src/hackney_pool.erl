@@ -52,7 +52,8 @@
                 queues = dict:new(),      % Dest => queue of {From, Ref, Requester}
                 pending = dict:new(),     % Ref  => {From, Dest, Requester}
                 connections = dict:new(),
-                sockets = dict:new()}).
+                sockets = dict:new(),
+                meta = dict:new()}).
 
 
 start() ->
@@ -291,12 +292,8 @@ init([Name, Options]) ->
             end,
   Timeout = proplists:get_value(timeout, Options),
 
-  case proplists:get_value(log_meta, Options) of
-    undefined ->
-        ok;
-    Meta ->
-        ok = logger:update_process_metadata(Meta)
-  end,
+  Meta = proplists:get_value(log_meta, Options, #{}),
+  logger:update_process_metadata(Meta),
 
   %% register the module
   ets:insert(?MODULE, {Name, self()}),
@@ -305,7 +302,7 @@ init([Name, Options]) ->
   Engine = init_metrics(Name),
 
   {ok, #state{name=Name, metrics=Engine, max_connections=MaxConn,
-              timeout=Timeout}}.
+              timeout=Timeout, meta=Meta}}.
 
 handle_call(stats, _From, State) ->
   {reply, handle_stats(State), State};
@@ -323,8 +320,9 @@ handle_call({checkout, Dest, Requester, RequestRef}, From, State) ->
          max_connections=MaxConn,
          clients=Clients,
          queues = Queues,
-         pending = Pending} = State,
-
+         pending = Pending,
+         meta = Meta} = State,
+  logger:update_process_metadata(Meta),
   {Reply, State2} = find_connection(Dest, Requester, State),
   case Reply of
     {ok, _Socket, _Owner} ->
@@ -380,9 +378,9 @@ handle_cast({set_maxconn, MaxConn}, State) ->
   {noreply, State#state{max_connections=MaxConn}};
 handle_cast({set_timeout, NewTimeout}, State) ->
   {noreply, State#state{timeout=NewTimeout}};
-handle_cast({set_meta, Meta}, State) ->
-  _ = logger:update_process_metadata(Meta),
-  {noreply, State};
+handle_cast({set_meta, NewMeta}, #state{meta=Meta}=State) ->
+  _ = logger:update_process_metadata(NewMeta),
+  {noreply, State#state{meta=maps:merge(Meta, NewMeta)}};
 
 handle_cast({checkout_cancel, Dest, Ref}, State) ->
   #state{queues=Queues, pending=Pending} = State,
